@@ -23,8 +23,6 @@ Mappings:
       SecurityGroupIds: sg-c02b92bd
       Subnet: subnet-ad5c8c91
       BasePath: s3://testbulk-kk/template/dev
-      
-      #s3://bucketName/object/dev/python.zip
 
 Resources:
   BulkLoadDataPipeline:
@@ -123,8 +121,8 @@ Resources:
               StringValue: ShellCommandActivity
             - Key: runsOn
               RefValue: Ec2Instance_DataLoad
-
-            - # stage is required for ShellCommandActivity INPUT1_STAGING_DIR
+            -
+              # stage is required for ShellCommandActivity INPUT1_STAGING_DIR
               Key: stage
               StringValue: "true"
               # Location of the data; this is what INPUT1_STAGING_DIR evaluates to.
@@ -132,9 +130,10 @@ Resources:
               RefValue: ScriptsLocation
             - Key: command
               StringValue: !Sub
-                - 'bash -x ${BasePath}/pipeline.sh ${BasePath}/${Object}/scripts/fetcher.zip ${BasePath}/${Object}/configs/fetcher.json'
+                - 'bash -x ${LocalBasePath}/pipeline.sh ${BasePath}/${Object}/scripts/fetcher.zip ${BasePath}/${Object}/configs/fetcher.json'
                   # In this context, staging dir is where the data resides.  This is not like EDW "stagating data."
-                - BasePath: "${INPUT1_STAGING_DIR}"
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
                   Object: !Ref Object
         - Id: Split_Raw_Data
           Name: Split_Raw_Data
@@ -154,7 +153,8 @@ Resources:
               RefValue: ScriptsLocation
             - Key: command
               StringValue: !Sub
-                - 'bash -x ${BasePath}/pipeline.sh ${BasePath}/${Object}/scripts/splitter.zip ${BasePath}/${Object}/config/fetcher.json'
+                - 'bash -x ${LocalBasePath}/pipeline.sh ${BasePath}/${Object}/scripts/splitter.zip ${BasePath}/${Object}/config/fetcher.json'
                   # In this context, staging dir is where the data resides.  This is not like EDW "stagating data."
-                - BasePath: "${INPUT1_STAGING_DIR}"
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
                   Object: !Ref Object
