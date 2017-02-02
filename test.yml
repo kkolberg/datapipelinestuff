@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates EDW bulk load data flow, including EC2 instance and Data Pipeline
+Parameters:
+  Environment:
+    AllowedValues:
+    - dev
+    Default: dev
+    Description: Type of environment
+    Type: String
+  Object:
+    AllowedValues:
+    - Accounting
+    - Quotes
+    Description: Salesforce object
+    Type: String
+Mappings:
+  EnvironmentValues:
+    dev:
+      SchemaName: edw_dev_work
+      PipelineLogPrefix: s3://testbulk-kk/logs/
+      FilePath: s3://edwdatalakedev/csv_test.csv
+      NetworkStackName: edw-vpc-development
+      RedshiftStackName: edw-redshift-development
+      TaskRunnerAmi: ami-94708982
+      DataPipelineRole: DataPipelineDefaultRole
+      SecurityGroupIds: sg-c02b92bd
+      Subnet: subnet-ad5c8c91
+      ScriptFile: s3://testbulk-kk/template/dev
+      PythonZipBucket: s3://testbulk-kk/template
+      PythonZipName: pythonScript.zip
+      PythonConfig: pythonconfig.json
+
+      
+      #s3://bucketName/object/dev/python.zip
+
+Resources:
+  BulkLoadDataPipeline:
+    Type: "AWS::DataPipeline::Pipeline"
+    Properties:
+      # Name will be EDWTransformLoadPipelineDev/qe/production
+      Name: !Join ["", ["BulkLoadDataPipeline", !Ref Environment]]
+      Description: Pipeline to orchestrate the transformation
+      Activate: false
+      PipelineObjects:
+        - Id: Default
+          Name: Default
+          # This is the default Data Pipeline object.  If the fields here
+          # are not explicitly set in any other object, the object takes the
+          # value from Default
+          Fields:
+
+            - Key: type
+              StringValue: Default
+            -
+              Key: scheduleType
+              StringValue: ondemand
+            -
+              Key: failureAndRerunMode
+              StringValue: CASCADE
+            -
+              Key: pipelineLogUri
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, PipelineLogPrefix ]
+            -
+              Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole ]
+            -
+              Key: resourceRole
+              StringValue: DataPipelineDefaultResourceRole
+                # Fn::Join:
+                #     - "-"
+                #     -
+                #         - !Ref Object
+                #         - !Ref Environment
+                #         - DatapipelineResourceRole
+        - Id: ScriptsLocation
+          Name: ScriptsLocation
+          Fields:
+            - Key: type
+              StringValue: S3DataNode
+            - Key: directoryPath
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, ScriptFile]
+        - Id: Ec2Instance_DataLoad
+          Name: Ec2Instance
+          # EC2 instance that Data Pipeline spins up.  Needs to have the
+          # packages DP requires and psql (which the script requires).
+          Fields:
+            -
+              Key: type
+              StringValue: Ec2Resource
+            -
+              Key: UserData
+              StringValue: I2Nsb3VkLWNvbmZpZw0KDQpyZXBvX3VwZGF0ZTogdHJ1ZQ0KcmVwb191cGdyYWRlOiBhbGwNCg0KcGFja2FnZXM6DQogLSBnaXQNCiAtIGRlZmF1bHQtanJlDQogLSBweXB5DQogLSBweXRob24tcGlwDQogLSBsaWJ5YWpsMiANCiAtIGxpYnlhamwtZGV2DQogLSBweXRob24tY2ZmaQ0KIC0gYXdzY2xpDQogLSB3Z2V0DQogLSB1bnppcA0KIC0gY2xvdWQtaW5pdA0KDQpzeXN0ZW1faW5mbzoNCiAgZGVmYXVsdF91c2VyOg0KICAgIG5hbWU6IGVjMi11c2Vy
+            -
+              Key: imageId
+              StringValue: !FindInMap [EnvironmentValues, !Ref Environment, TaskRunnerAmi ]
+            -
+              Key: terminateAfter
+              StringValue: 45 Minutes
+            -
+              Key: actionOnResourceFailure
+              StringValue: retryAll
+            -
+              Key: securityGroupIds
+              StringValue: !FindInMap [EnvironmentValues, !Ref Environment, SecurityGroupIds ]
+            -
+              Key: associatePublicIpAddress
+              StringValue: "false"
+            -
+              Key: subnetId
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, Subnet]
+            -
+              Key: instanceType
+              StringValue: t2.micro
+            -
+              Key: maximumRetries
+              StringValue: "1"
+            -
+              Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole ]
+            -
+              Key: resourceRole
+              StringValue: DataPipelineDefaultResourceRole
+                # Fn::Join:
+                #     - "-"
+                #     -
+                #         - !Ref Object
+                #         - !Ref Environment
+                #         - DatapipelineResourceRole
+        - Id: Load_Raw_Data
+          Name: Load_Raw_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+
+            - # stage is required for ShellCommandActivity INPUT1_STAGING_DIR
+              Key: stage
+              StringValue: "true"
+              # Location of the data; this is what INPUT1_STAGING_DIR evaluates to.
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${ScriptFile}/pipeline.sh ${PythonZipBucket}/${Object}/${Env}/scripts/${PythonZipName} ${PythonZipBucket}/${Object}/${Env}/config/${PythonConfig}'
+                  # In this context, staging dir is where the data resides.  This is not like EDW "stagating data."
+                - ScriptFile: "${INPUT1_STAGING_DIR}"
+                  PythonZipBucket: !FindInMap [ EnvironmentValues, !Ref Environment, PythonZipBucket]
+                  PythonZipName: !FindInMap [ EnvironmentValues, !Ref Environment, PythonZipName]
+                  PythonConfig: !FindInMap [ EnvironmentValues, !Ref Environment, PythonConfig]
+                  Object: !Ref Object
+                  Env: !Ref Environment
