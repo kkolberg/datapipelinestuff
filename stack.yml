@@ -81,9 +81,6 @@ Resources:
               Key: type
               StringValue: Ec2Resource
             -
-              Key: UserData
-              StringValue: I2Nsb3VkLWNvbmZpZw0KDQpyZXBvX3VwZGF0ZTogdHJ1ZQ0KcmVwb191cGdyYWRlOiBhbGwNCg0KcGFja2FnZXM6DQogLSBnaXQNCiAtIGRlZmF1bHQtanJlDQogLSBweXB5DQogLSBweXRob24tcGlwDQogLSBsaWJ5YWpsMiANCiAtIGxpYnlhamwtZGV2DQogLSBweXRob24tY2ZmaQ0KIC0gYXdzY2xpDQogLSB3Z2V0DQogLSB1bnppcA0KIC0gY2xvdWQtaW5pdA0KDQpzeXN0ZW1faW5mbzoNCiAgZGVmYXVsdF91c2VyOg0KICAgIG5hbWU6IGVjMi11c2Vy
-            -
               Key: imageId
               StringValue: !FindInMap [EnvironmentValues, !Ref Environment, TaskRunnerAmi ]
             -
