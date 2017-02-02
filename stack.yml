@@ -23,10 +23,6 @@ Mappings:
       SecurityGroupIds: sg-c02b92bd
       Subnet: subnet-ad5c8c91
       BasePath: s3://testbulk-kk/template/dev
-  EnvironmentValues:
-      Quotes:
-        PythonZipName: pythonScript.zip
-
       
       #s3://bucketName/object/dev/python.zip
 
