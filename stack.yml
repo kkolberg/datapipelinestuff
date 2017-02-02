@@ -18,17 +18,14 @@ Mappings:
     dev:
       SchemaName: edw_dev_work
       PipelineLogPrefix: s3://testbulk-kk/logs/
-      FilePath: s3://edwdatalakedev/csv_test.csv
-      NetworkStackName: edw-vpc-development
-      RedshiftStackName: edw-redshift-development
       TaskRunnerAmi: ami-94708982
       DataPipelineRole: DataPipelineDefaultRole
       SecurityGroupIds: sg-c02b92bd
       Subnet: subnet-ad5c8c91
-      ScriptFile: s3://testbulk-kk/template/dev
-      PythonZipBucket: s3://testbulk-kk/template
-      PythonZipName: pythonScript.zip
-      PythonConfig: pythonconfig.json
+      BasePath: s3://testbulk-kk/template/dev
+  EnvironmentValues:
+      Quotes:
+        PythonZipName: pythonScript.zip
 
       
       #s3://bucketName/object/dev/python.zip
@@ -78,7 +75,7 @@ Resources:
             - Key: type
               StringValue: S3DataNode
             - Key: directoryPath
-              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, ScriptFile]
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath]
         - Id: Ec2Instance_DataLoad
           Name: Ec2Instance
           # EC2 instance that Data Pipeline spins up.  Needs to have the
@@ -142,11 +139,29 @@ Resources:
               RefValue: ScriptsLocation
             - Key: command
               StringValue: !Sub
-                - 'bash -x ${ScriptFile}/pipeline.sh ${PythonZipBucket}/${Object}/${Env}/scripts/${PythonZipName} ${PythonZipBucket}/${Object}/${Env}/config/${PythonConfig}'
+                - 'bash -x ${BasePath}/pipeline.sh ${BasePath}/${Object}/scripts/fetcher.zip ${BasePath}/${Object}/configs/fetcher.json'
                   # In this context, staging dir is where the data resides.  This is not like EDW "stagating data."
-                - ScriptFile: "${INPUT1_STAGING_DIR}"
-                  PythonZipBucket: !FindInMap [ EnvironmentValues, !Ref Environment, PythonZipBucket]
-                  PythonZipName: !FindInMap [ EnvironmentValues, !Ref Environment, PythonZipName]
-                  PythonConfig: !FindInMap [ EnvironmentValues, !Ref Environment, PythonConfig]
+                - BasePath: "${INPUT1_STAGING_DIR}"
                   Object: !Ref Object
-                  Env: !Ref Environment
+        - Id: Split_Raw_Data
+          Name: Split_Raw_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_Raw_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+
+            - # stage is required for ShellCommandActivity INPUT1_STAGING_DIR
+              Key: stage
+              StringValue: "true"
+              # Location of the data; this is what INPUT1_STAGING_DIR evaluates to.
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${BasePath}/pipeline.sh ${BasePath}/${Object}/scripts/splitter.zip ${BasePath}/${Object}/config/fetcher.json'
+                  # In this context, staging dir is where the data resides.  This is not like EDW "stagating data."
+                - BasePath: "${INPUT1_STAGING_DIR}"
+                  Object: !Ref Object

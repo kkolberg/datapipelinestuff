@@ -1,15 +1,12 @@
 #!/bin/bash
 CONFIG_S3=$1
-# wget https://bootstrap.pypa.io/get-pip.py
-# sudo pypy get-pip.py
-
 
 echo "----- starting virtualenv -----"
 sudo -H pip install virtualenv
 virtualenv -p /usr/bin/pypy .venv
 echo "----- finished virtualenv -----"
 
-echo "----- activating virtualenv -----"
+echo "----- activating virtualenv and install pip-----"
 . .venv/bin/activate
 pip install -r requirements.txt
 echo "----- activated virtualenv and installed pip -----"
