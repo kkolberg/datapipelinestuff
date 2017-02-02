@@ -1,4 +1,4 @@
 {
-    "input":"../output.json",
-    "output":"../temp/"
+    "input":"./output.json",
+    "output":"./temp/"
 }

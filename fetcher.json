@@ -1,4 +1,4 @@
 {
     "url":"https://s3.amazonaws.com/testbulk-kk/input/data.json",
-    "output":"../output.json"
+    "output":"./output.json"
 }
