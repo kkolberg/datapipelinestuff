@@ -18,7 +18,7 @@ Mappings:
     dev:
       SchemaName: edw_dev_work
       PipelineLogPrefix: s3://testbulk-kk/logs/
-      TaskRunnerAmi: ami-94708982
+      TaskRunnerAmi: ami-684ab17e
       DataPipelineRole: DataPipelineDefaultRole
       SecurityGroupIds: sg-c02b92bd
       Subnet: subnet-ad5c8c91
