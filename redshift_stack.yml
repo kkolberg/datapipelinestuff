@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates EDW bulk load data flow, including EC2 instance and Data Pipeline
+Parameters:
+  Environment:
+    AllowedValues:
+    - dev
+    Default: dev
+    Description: Type of environment
+    Type: String
+  Object:
+    AllowedValues:
+    - Accounting
+    - Quotes
+    Description: Salesforce object
+    Type: String
+Mappings:
+  EnvironmentValues:
+    dev:
+      SchemaName: edw_dev_work
+      PipelineLogPrefix: s3://testbulk-kk/logs/
+      TaskRunnerAmi: ami-684ab17e
+      DataPipelineRole: DataPipelineDefaultRole
+      IamStackName: edw-iam-qe
+      SecurityGroupIds: sg-c02b92bd
+      NetworkStackName: edw-vpc-development
+      BasePath: s3://testbulk-kk/template/dev
+Resources:
+  EDWBulkDataLoadNotifySns:
+    Type: AWS::SNS::Topic
+    Description: Topic to which bulk load data success and failure events are sent.
+    Properties:
+      Subscription:
+        - Endpoint: andavis@secureworks.com
+          Protocol: email
+  BulkLoadDataPipeline:
+    Type: "AWS::DataPipeline::Pipeline"
+    Properties:
+      Name: !Join ["", ["BulkLoadDataPipeline", !Ref Environment]]
+      Description: Pipeline to orchestrate the transformation
+      Activate: false
+      PipelineObjects:
+        - Id: Default
+          Name: Default
+          # This is the default Data Pipeline object.  If the fields here
+          # are not explicitly set in any other object, the object takes the
+          # value from Default
+          Fields:
+            - Key: type
+              StringValue: Default
+            -
+              Key: scheduleType
+              StringValue: cron
+            -
+              Key: schedule
+              RefValue: DefaultSchedule
+            -
+              Key: failureAndRerunMode
+              StringValue: CASCADE
+            -
+              Key: pipelineLogUri
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, PipelineLogPrefix ]
+            -
+              Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole ]
+            -
+              Key: resourceRole
+              StringValue:
+                Fn::ImportValue:
+                  Fn::Sub:
+                    - "${IamExport}-DatapipelineResourceRoleInstanceProfile"
+                    - IamExport: {"Fn::FindInMap": [ EnvironmentValues, !Ref Environment, IamStackName]}
+        
+        - Id: ScriptsLocation
+          Name: ScriptsLocation
+          Fields:
+            - Key: type
+              StringValue: S3DataNode
+            - Key: directoryPath
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath]
+        - Id: Ec2Instance_DataLoad
+          Name: Ec2Instance
+          Fields:
+            - Key: type
+              StringValue: Ec2Resource
+            - Key: imageId
+              StringValue: !FindInMap [EnvironmentValues, !Ref Environment, TaskRunnerAmi ]
+            - Key: terminateAfter
+              StringValue: 45 Minutes
+            - Key: actionOnResourceFailure
+              StringValue: retryAll
+            - Key: securityGroupIds
+              StringValue: !FindInMap [EnvironmentValues, !Ref Environment, SecurityGroupIds ]
+            - Key: associatePublicIpAddress
+              StringValue: "false"
+            - Key: schedule
+              RefValue: DefaultSchedule
+            - Key: subnetId
+              StringValue:
+                Fn::ImportValue:
+                  Fn::Sub:
+                    - "${SubnetExport}-VPCPrivateSubnetAZ1ARN"
+                    - SubnetExport: {"Fn::FindInMap": [ EnvironmentValues, !Ref Environment, NetworkStackName]}
+            - Key: instanceType
+              StringValue: t2.micro
+            - Key: maximumRetries
+              StringValue: "1"
+            - Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole ]
+            - Key: resourceRole
+              StringValue:
+                Fn::ImportValue:
+                  Fn::Sub:
+                    - "${IamExport}-DatapipelineResourceRoleInstanceProfile"
+                    - IamExport: {"Fn::FindInMap": [ EnvironmentValues, !Ref Environment, IamStackName]}
+        - Id: EdwDataLoadFailureNotify
+          Name: EdwDataLoadFailureNotify
+          Fields:
+            - Key: type
+              StringValue: SnsAlarm
+            - Key: topicArn
+              StringValue: !Ref EDWBulkDataLoadNotifySns
+            - Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole]
+            - Key: subject
+              StringValue: "Script FAILURE: #{node.@scheduledStartTime}"
+            - Key: message
+              StringValue: |
+                "#{node} failed for #{node.@scheduledStartTime} run"
+                "Other information:"
+                "#{node.@pipelineId}"
+                "#{node.@error}"
+        - Id: EdwDataLoadSuccessNotify
+          Name: EdwDataLoadSuccessNotify
+          Fields:
+            - Key: type
+              StringValue: SnsAlarm
+            - Key: topicArn
+              StringValue: !Ref EDWBulkDataLoadNotifySns
+            - Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole]
+            - Key: subject
+              StringValue: "Script Success!: #{node.@scheduledStartTime}"
+            - Key: message
+              StringValue: |
+                "#{node} succeeded for #{node.@scheduledStartTime} run"
+                "Other information:"
+                "#{node.@pipelineId"
+# -------------------------------------------------------------
+#           Quotes
+# -------------------------------------------------------------
+        - Id: Load_Quote_Raw_Data
+          Name: Load_Quote_Raw_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: quote
+                      Stage: raw
+                  
+        - Id: Load_Quote_Stg_Data
+          Name: Load_Quote_Stg_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_Quote_Raw_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: quote
+                      Stage: stg
+        - Id: Load_Quote_Ods_Data
+          Name: Load_Quote_Ods_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_Quote_Stg_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: quote
+                      Stage: ods
+        - Id: Archive_Quote_File
+          Name: Archive_Quote_File
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_Quote_Ods_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/archive_processed_files.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: quote
+                      Stage: archive
+# -------------------------------------------------------------
+#           Quotes
+# -------------------------------------------------------------
+
