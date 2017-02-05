@@ -1,0 +1,99 @@
+# -------------------------------------------------------------
+#           |Title|
+# -------------------------------------------------------------
+        - Id: Load_|Title|_Raw_Data
+          Name: Load_|Title|_Raw_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+|Depend|
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: |Name|
+                      Stage: raw
+                  
+        - Id: Load_|Title|_Stg_Data
+          Name: Load_|Title|_Stg_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_|Title|_Raw_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: |Name|
+                      Stage: stg
+        - Id: Load_|Title|_Ods_Data
+          Name: Load_|Title|_Ods_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_|Title|_Stg_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: |Name|
+                      Stage: ods
+        - Id: Archive_|Title|_File
+          Name: Archive_|Title|_File
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: dependsOn
+              RefValue: Load_|Title|_Ods_Data
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: onFail
+              RefValue: EdwDataLoadFailureNotify
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/archive_processed_files.sh ${BasePath}/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - ${SalesforceObject}/load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: |Name|
+                      Stage: archive
