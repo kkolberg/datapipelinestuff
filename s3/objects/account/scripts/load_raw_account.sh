@@ -37,9 +37,9 @@ sedSubs="-e s/\${redshiftschemaname}/$redshiftschemaname/ \
 -e s/\${iamrole}/$iamrole/ \
 -e s/\${stage}/$stage/"
 
-rawSQL="$(cat "./account/account_raw.sql" | sed $sedSubs)"
-finishedSQL="$(cat "./account/finished.sql" | sed $sedSubs)"
-errorSQL="$(cat "./account/error.sql" | sed $sedSubs)"
+rawSQL="$(cat "./account/account_raw.sql" | sed -n $sedSubs)"
+finishedSQL="$(cat "./account/finished.sql" | sed -n $sedSubs)"
+errorSQL="$(cat "./account/error.sql" | sed -n $sedSubs)"
 
 echo $rawSQL
 echo "-----"
