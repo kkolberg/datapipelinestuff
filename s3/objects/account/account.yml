@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates EDW bulk load data flow, including EC2 instance and Data Pipeline
+Parameters:
+  Environment:
+    AllowedValues:
+    - dev
+    Default: dev
+    Description: Type of environment
+    Type: String
+  Object:
+    AllowedValues:
+    - Accounting
+    - Quotes
+    Description: Salesforce object
+    Type: String
+Mappings:
+  EnvironmentValues:
+    dev:
+      SchemaName: edw_dev_work
+      PipelineLogPrefix: s3://testbulk-kk/logs/
+      TaskRunnerAmi: ami-684ab17e
+      DataPipelineRole: DataPipelineDefaultRole
+      SecurityGroupIds: sg-c02b92bd
+      Subnet: subnet-ad5c8c91
+      BasePath: s3://testbulk-kk/s3
+
+Resources:
+  BulkLoadDataPipeline:
+    Type: "AWS::DataPipeline::Pipeline"
+    Properties:
+      # Name will be EDWTransformLoadPipelineDev/qe/production
+      Name: !Join ["", ["BulkLoadDataPipeline", !Ref Environment]]
+      Description: Pipeline to orchestrate the transformation
+      Activate: false
+      PipelineObjects:
+        - Id: Default
+          Name: Default
+          Fields:
+
+            - Key: type
+              StringValue: Default
+            -
+              Key: scheduleType
+              StringValue: ondemand
+            -
+              Key: failureAndRerunMode
+              StringValue: CASCADE
+            -
+              Key: pipelineLogUri
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, PipelineLogPrefix ]
+            -
+              Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole ]
+            -
+              Key: resourceRole
+              StringValue: DataPipelineDefaultResourceRole
+        - Id: ScriptsLocation
+          Name: ScriptsLocation
+          Fields:
+            - Key: type
+              StringValue: S3DataNode
+            - Key: directoryPath
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath]
+        - Id: Ec2Instance_DataLoad
+          Name: Ec2Instance
+          Fields:
+            -
+              Key: type
+              StringValue: Ec2Resource
+            -
+              Key: imageId
+              StringValue: !FindInMap [EnvironmentValues, !Ref Environment, TaskRunnerAmi ]
+            -
+              Key: terminateAfter
+              StringValue: 45 Minutes
+            -
+              Key: actionOnResourceFailure
+              StringValue: retryAll
+            -
+              Key: securityGroupIds
+              StringValue: !FindInMap [EnvironmentValues, !Ref Environment, SecurityGroupIds ]
+            -
+              Key: associatePublicIpAddress
+              StringValue: "false"
+            -
+              Key: subnetId
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, Subnet]
+            -
+              Key: instanceType
+              StringValue: t2.micro
+            -
+              Key: maximumRetries
+              StringValue: "1"
+            -
+              Key: role
+              StringValue: !FindInMap [ EnvironmentValues, !Ref Environment, DataPipelineRole ]
+            -
+              Key: resourceRole
+              StringValue: DataPipelineDefaultResourceRole
+         
+# -------------------------------------------------------------
+#           Account
+# -------------------------------------------------------------
+        - Id: Load_Account_Raw_Data
+          Name: Load_Account_Raw_Data
+          Fields:
+            - Key: type
+              StringValue: ShellCommandActivity
+            - Key: runsOn
+              RefValue: Ec2Instance_DataLoad
+            - Key: stage
+              StringValue: "true"
+            - Key: input
+              RefValue: ScriptsLocation
+            - Key: command
+              StringValue: !Sub
+                - 'bash -x ${LocalBasePath}/objects/account/scripts/${StepObject}.sh ${BasePath}/objects/account/cfg/${StepObject}.cfg'                 
+                - LocalBasePath: "${INPUT1_STAGING_DIR}"
+                  BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
+                  StepObject: !Sub
+                    - load_${Stage}_${SalesforceObject}
+                    - SalesforceObject: account
+                      Stage: raw
+                  
