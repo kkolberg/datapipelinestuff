@@ -5,6 +5,11 @@ mkdir ./account
 aws s3 cp $s3_config ./account/load_ods_account.cfg
 
 source ./account/load_ods_account.cfg
+
+aws s3 cp $s3redshift ./account/redshift.cfg
+
+source .account/redshift.cfg
+
 loggingschema="edw_dev_work"
 loggingtablename="etl_log_t"
 stage=rawSQL
