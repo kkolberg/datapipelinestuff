@@ -17,7 +17,7 @@
               RefValue: ScriptsLocation
             - Key: command
               StringValue: !Sub
-                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - 'bash -x ${LocalBasePath}/load_stage.sh ${BasePath}/${StepObject}.cfg |Name| raw'                 
                 - LocalBasePath: "${INPUT1_STAGING_DIR}"
                   BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
                   StepObject: !Sub
@@ -42,7 +42,7 @@
               RefValue: ScriptsLocation
             - Key: command
               StringValue: !Sub
-                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - 'bash -x ${LocalBasePath}/load_stage.sh ${BasePath}/${StepObject}.cfg |Name| stg'                 
                 - LocalBasePath: "${INPUT1_STAGING_DIR}"
                   BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
                   StepObject: !Sub
@@ -66,7 +66,7 @@
               RefValue: ScriptsLocation
             - Key: command
               StringValue: !Sub
-                - 'bash -x ${LocalBasePath}/${StepObject}.sh ${BasePath}/${StepObject}.cfg'                 
+                - 'bash -x ${LocalBasePath}/load_stage.sh ${BasePath}/${StepObject}.cfg |Name| ods'                 
                 - LocalBasePath: "${INPUT1_STAGING_DIR}"
                   BasePath: !FindInMap [ EnvironmentValues, !Ref Environment, BasePath ]
                   StepObject: !Sub
