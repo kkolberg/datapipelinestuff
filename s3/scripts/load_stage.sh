@@ -20,11 +20,11 @@ aws s3 cp $s3finishedSQL ./$object_$stage/finished.sql
 aws s3 cp $s3errorSQL ./$object_$stage/error.sql
 
 
-startSQL="$(cat "./$object_$stage/start.sql" | sed -e s^\${loggingschema}^"$loggingschema"^ -e s^\${loggingtablename}^"$loggingtablename"^ -e s^\${redshiftschemaname}^"$redshiftschemaname"^ -e s^\${jobname}^"$jobname"^ -e s^\${columnlist}^"$columnlist"^ -e s^\${sfdcobject}^"$sfdcobject"^ -e s^\${s3jsonpathsfile}^"$s3jsonpathsfile"^ -e s^\${iamrole}^"$iamrole"^ -e s^\${stage}^"$stage"^)"
+startSQL="$(cat "./$object_$stage/start.sql" | sed -e s^\${loggingschema}^"$loggingschema"^ -e s^\${loggingtablename}^"$loggingtablename"^ -e s^\${redshiftschemaname}^"$redshiftschemaname"^ -e s^\${jobname}^"$jobname"^ -e s^\${columnlist}^"$columnlist"^ -e s^\${sfdcobject}^"$sfdcobject"^ -e s^\${s3jsonpathsfile}^"$s3jsonpathsfile"^ -e s^\${iamrole}^"$iamrole"^ -e s^\${stage}^"$stage"^ -e s^\${s3datafile}^"$s3datafile"^ -e s^\${sfdcobject}^"$sfdcobject"^)"
 
-finishedSQL="$(cat "./$object_$stage/finished.sql" | sed -e s^\${loggingschema}^"$loggingschema"^ -e s^\${loggingtablename}^"$loggingtablename"^ -e s^\${redshiftschemaname}^"$redshiftschemaname"^ -e s^\${jobname}^"$jobname"^ -e s^\${columnlist}^"$columnlist"^ -e s^\${sfdcobject}^"$sfdcobject"^ -e s^\${s3jsonpathsfile}^"$s3jsonpathsfile"^ -e s^\${iamrole}^"$iamrole"^ -e s^\${stage}^"$stage"^)"
+finishedSQL="$(cat "./$object_$stage/finished.sql" | sed -e s^\${loggingschema}^"$loggingschema"^ -e s^\${loggingtablename}^"$loggingtablename"^ -e s^\${redshiftschemaname}^"$redshiftschemaname"^ -e s^\${jobname}^"$jobname"^ -e s^\${columnlist}^"$columnlist"^ -e s^\${sfdcobject}^"$sfdcobject"^ -e s^\${s3jsonpathsfile}^"$s3jsonpathsfile"^ -e s^\${iamrole}^"$iamrole"^ -e s^\${stage}^"$stage"^ -e s^\${s3datafile}^"$s3datafile"^ -e s^\${sfdcobject}^"$sfdcobject"^)"
 
-errorSQL="$(cat "./$object_$stage/error.sql" | sed  -e s^\${loggingschema}^"$loggingschema"^ -e s^\${loggingtablename}^"$loggingtablename"^ -e s^\${redshiftschemaname}^"$redshiftschemaname"^ -e s^\${jobname}^"$jobname"^ -e s^\${columnlist}^"$columnlist"^ -e s^\${sfdcobject}^"$sfdcobject"^ -e s^\${s3jsonpathsfile}^"$s3jsonpathsfile"^ -e s^\${iamrole}^"$iamrole"^ -e s^\${stage}^"$stage"^)"
+errorSQL="$(cat "./$object_$stage/error.sql" | sed  -e s^\${loggingschema}^"$loggingschema"^ -e s^\${loggingtablename}^"$loggingtablename"^ -e s^\${redshiftschemaname}^"$redshiftschemaname"^ -e s^\${jobname}^"$jobname"^ -e s^\${columnlist}^"$columnlist"^ -e s^\${sfdcobject}^"$sfdcobject"^ -e s^\${s3jsonpathsfile}^"$s3jsonpathsfile"^ -e s^\${iamrole}^"$iamrole"^ -e s^\${stage}^"$stage"^ -e s^\${s3datafile}^"$s3datafile"^ -e s^\${sfdcobject}^"$sfdcobject"^)"
 
 export PGPASSWORD="$redshiftpassword"
 
